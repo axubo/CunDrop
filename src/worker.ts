@@ -165,6 +165,9 @@ export default {
     try {
       // ===== 登录 / 会话 =====
       if (path === "/api/login" && method === "POST") {
+        if (!env.ADMIN_PASSWORD) {
+          return json({ error: "管理员密码未配置：请去 Cloudflare → Variables and Secrets 添加 ADMIN_PASSWORD（机密类型）" }, 500);
+        }
         const body = await readJson<{ password?: string }>(req);
         if (body?.password && body.password === env.ADMIN_PASSWORD) {
           const token = await createSession(env);
@@ -178,16 +181,11 @@ export default {
       }
 
       if (path === "/api/me" && method === "GET") {
-        const authed = await verifySession(env, req.headers.get("cookie"));
-        return json({ authenticated: authed, maxUploadSize: MAX_UPLOAD_SIZE });
+        // 已移除密码登录：直接视为已登录
+        return json({ authenticated: true, maxUploadSize: MAX_UPLOAD_SIZE });
       }
 
-      // ===== 以下 API 需要登录 =====
-      const authed = await verifySession(env, req.headers.get("cookie"));
-      const needAuth = path.startsWith("/api/") || path.startsWith("/f/");
-      if (needAuth && !authed) {
-        return json({ error: "未登录" }, 401);
-      }
+      // ===== 以下 API 需要登录（已移除密码，直接放行）=====
 
       // ===== 上传: 申请预签名 URL(浏览器直传 R2) =====
       if (path === "/api/upload/init" && method === "POST") {
