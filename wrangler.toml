@@ -22,11 +22,11 @@ bucket_name = "cundrop-storage"
 # KV 命名空间绑定
 [[kv_namespaces]]
 binding = "KV"
-id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+id = "3ba7a84fabcc429abb39a7f806bc4d9e"
 
 [vars]
 BUCKET_NAME = "cundrop-storage" # 与上面的 bucket_name 保持一致
-R2_ACCOUNT_ID = "你的 Cloudflare Account ID" #
+R2_ACCOUNT_ID = "74afe3f3d9f2db4bb3ff5b23da2b0623" #
 
 # 以下敏感配置请用 `wrangler secret put <名字>` 设置, 不要写进文件:
 # ADMIN_PASSWORD 登录密码(自己设定一个强密码)
