@@ -1,0 +1,35 @@
+# ============================================================
+# CunDrop —— 基于 Cloudflare R2 的私人云盘
+# 部署前请按 README.md 修改以下标记为的项
+# ============================================================
+
+name = "cundrop"
+main = "src/worker.ts"
+compatibility_date = "2024-06-01"
+
+# 静态资源(前端页面)配置
+# /api/* /f/* /s/* 走 Worker, 其余直接 serving public/ 下的静态文件
+[assets]
+directory = "./public"
+run_worker_first = ["/api/*", "/f/*", "/s/*"]
+not_found_handling = "single-page-application"
+
+# R2 存储桶绑定
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "cundrop-storage"
+
+# KV 命名空间绑定
+[[kv_namespaces]]
+binding = "KV"
+id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+[vars]
+BUCKET_NAME = "cundrop-storage" # 与上面的 bucket_name 保持一致
+R2_ACCOUNT_ID = "你的 Cloudflare Account ID" #
+
+# 以下敏感配置请用 `wrangler secret put <名字>` 设置, 不要写进文件:
+# ADMIN_PASSWORD 登录密码(自己设定一个强密码)
+# R2_ACCESS_KEY_ID R2 API Token 的 Access Key ID
+# R2_SECRET_ACCESS_KEY R2 API Token 的 Secret Access Key
+# SESSION_SECRET 任意随机长字符串(用于签名会话 cookie)
