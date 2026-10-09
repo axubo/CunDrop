@@ -1,0 +1,1 @@
+{"compilerOptions":{"lib":["ES2021"],"module":"ESNext","moduleResolution":"bundler","noEmit":true,"noUnusedLocals":true,"skipLibCheck":true,"strict":true,"target":"ES2021","types":["@cloudflare/workers-types"]},"include":["src"]}
