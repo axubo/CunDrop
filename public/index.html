@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CunDrop · 私人文件分享</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['-apple-system','BlinkMacSystemFont','"PingFang SC"','"Hiragino Sans GB"','"Microsoft YaHei"','"Noto Sans SC"','sans-serif'],
+      },
+      colors: { ink: '#070b14' },
+    }
+  }
+}
+</script>
+<style>
+  html,body{height:100%;}
+  body{
+    background-color:#070b14;color:#e8ecf4;
+    background-image:
+      radial-gradient(700px 460px at 12% -5%, rgba(99,102,241,.13), transparent 60%),
+      radial-gradient(800px 560px at 95% 110%, rgba(168,85,247,.11), transparent 60%),
+      radial-gradient(560px 420px at 88% 8%, rgba(34,211,238,.07), transparent 60%);
+    background-attachment:fixed;
+  }
+  .glass{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);}
+  .glass-strong{background:rgba(13,18,32,.82);border:1px solid rgba(255,255,255,.1);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);}
+  .grad-text{background:linear-gradient(120deg,#a5b4ff,#d8b4fe 55%,#a5f3fc);-webkit-background-clip:text;background-clip:text;color:transparent;}
+  .btn-grad{background:linear-gradient(135deg,#6d7cff,#a855f7);box-shadow:0 8px 26px rgba(109,124,255,.35);transition:all .2s;}
+  .btn-grad:hover{transform:translateY(-1px);box-shadow:0 12px 32px rgba(109,124,255,.5);}
+  .btn-grad:active{transform:none;}
+  .btn-ghost{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);transition:all .2s;}
+  .btn-ghost:hover{background:rgba(255,255,255,.11);}
+  .card-hover{transition:transform .25s ease, box-shadow .25s ease, border-color .25s ease;}
+  .card-hover:hover{transform:translateY(-4px);border-color:rgba(139,146,255,.35);box-shadow:0 18px 44px rgba(0,0,0,.45),0 0 0 1px rgba(139,146,255,.12);}
+  .file-actions{opacity:0;transform:translateY(6px);transition:all .22s ease;}
+  .group:hover .file-actions{opacity:1;transform:none;}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+  .fade-up{animation:fadeUp .45s ease both;}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+  .shake{animation:shake .45s ease;}
+  @keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-16px)}}
+  .orb{position:absolute;border-radius:9999px;filter:blur(70px);opacity:.5;animation:floaty 9s ease-in-out infinite;pointer-events:none;}
+  ::-webkit-scrollbar{width:10px;height:10px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.14);border-radius:8px;border:2px solid #070b14}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24)}
+  #dropzone{transition:all .25s ease;}
+  #dropzone.dragging{border-color:#8b92ff !important;background:rgba(109,124,255,.1) !important;transform:scale(1.01);}
+  .progress-track{background:rgba(255,255,255,.08);overflow:hidden;}
+  .progress-fill{background:linear-gradient(90deg,#6d7cff,#a855f7,#22d3ee);background-size:200% 100%;animation:slide 1.6s linear infinite;}
+  @keyframes slide{from{background-position:200% 0}to{background-position:-200% 0}}
+  .modal-bg{background:rgba(3,6,12,.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+  .modal-panel{animation:fadeUp .3s ease both;}
+  input,select{outline:none;}
+  input:focus,select:focus{border-color:#6d7cff !important;box-shadow:0 0 0 3px rgba(109,124,255,.18);}
+  .toast{animation:fadeUp .3s ease both;}
+  .toast.hide{opacity:0;transform:translateY(8px);transition:all .3s;}
+  .expiry-pill input{display:none;}
+  .expiry-pill span{display:inline-block;padding:8px 16px;border-radius:9999px;font-size:13px;cursor:pointer;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);transition:all .2s;color:#aab2c5;}
+  .expiry-pill input:checked+span{background:linear-gradient(135deg,rgba(109,124,255,.35),rgba(168,85,247,.35));
+    border-color:#8b92ff;color:#fff;box-shadow:0 4px 16px rgba(109,124,255,.3);}
+  .thumb-img{transition:transform .4s ease;}
+  .group:hover .thumb-img{transform:scale(1.06);}
+  select option{background:#0d1220;}
+</style>
+</head>
+<body class="font-sans antialiased">
+
+<!-- ============ 登录页 ============ -->
+<div id="view-login" class="min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
+  <div class="orb w-96 h-96 bg-indigo-600/40 -top-20 -left-20"></div>
+  <div class="orb w-80 h-80 bg-purple-600/30 top-1/3 -right-16" style="animation-delay:-3s"></div>
+  <div class="orb w-72 h-72 bg-cyan-500/20 bottom-0 left-1/3" style="animation-delay:-6s"></div>
+
+  <div class="glass rounded-3xl p-10 w-full max-w-md relative fade-up">
+    <div class="flex items-center gap-3 mb-8">
+      <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
+           style="background:linear-gradient(135deg,#6d7cff,#a855f7);box-shadow:0 8px 24px rgba(109,124,255,.45)">☁️</div>
+      <div>
+        <div class="text-xl font-bold tracking-wide grad-text">CunDrop</div>
+        <div class="text-xs text-slate-400 mt-0.5 tracking-widest">PRIVATE CLOUD DRIVE</div>
+      </div>
+    </div>
+    <h1 class="text-2xl font-bold mb-2">欢迎回来</h1>
+    <p class="text-sm text-slate-400 mb-8">输入管理员密码进入 CunDrop</p>
+    <form id="login-form">
+      <input id="login-password" type="password" placeholder="管理员密码" autocomplete="current-password"
+        class="w-full px-5 py-4 rounded-2xl bg-black/30 border border-white/10 text-[15px] placeholder:text-slate-500 mb-4 transition">
+      <div id="login-error" class="text-sm text-red-400 mb-4 h-5"></div>
+      <button type="submit" class="btn-grad w-full py-4 rounded-2xl font-semibold text-[15px]">进 入 云 盘</button>
+    </form>
+    <p class="text-xs text-slate-500 mt-8 text-center">Cloudflare R2 强力驱动 · 数据完全属于你自己</p>
+  </div>
+</div>
+
+<!-- ============ 主界面 ============ -->
+<div id="view-app" class="hidden min-h-screen flex-col lg:flex-row">
+  <!-- 侧边栏 -->
+  <aside class="lg:w-64 shrink-0 lg:min-h-screen p-5 flex lg:flex-col gap-4 items-center lg:items-stretch border-b lg:border-b-0 lg:border-r border-white/8">
+    <div class="flex items-center gap-3 px-2">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0"
+           style="background:linear-gradient(135deg,#6d7cff,#a855f7);box-shadow:0 6px 20px rgba(109,124,255,.4)">☁️</div>
+      <div class="hidden sm:block">
+        <div class="font-bold tracking-wide grad-text">CunDrop</div>
+        <div class="text-[10px] text-slate-500 tracking-widest">PRIVATE DRIVE</div>
+      </div>
+    </div>
+    <nav class="flex lg:flex-col gap-1 lg:mt-6 flex-1">
+      <button data-page="files" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition">
+        <span class="text-lg">📁</span><span class="hidden md:inline">我的文件</span>
+      </button>
+      <button data-page="shares" class="nav-btn flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition">
+        <span class="text-lg">🔗</span><span class="hidden md:inline">分享管理</span>
+      </button>
+    </nav>
+    <div class="hidden lg:block glass rounded-2xl p-4">
+      <div class="flex items-center gap-4">
+        <div class="relative w-16 h-16 shrink-0">
+          <svg viewBox="0 0 64 64" class="w-16 h-16 -rotate-90">
+            <circle cx="32" cy="32" r="26" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="7"/>
+            <circle id="storage-ring" cx="32" cy="32" r="26" fill="none" stroke="url(#ringGrad)" stroke-width="7"
+                    stroke-linecap="round" stroke-dasharray="163.3" stroke-dashoffset="163.3" style="transition:stroke-dashoffset 1s ease"/>
+            <defs><linearGradient id="ringGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#6d7cff"/><stop offset="100%" stop-color="#a855f7"/>
+            </linearGradient></defs>
+          </svg>
+          <div id="storage-pct" class="absolute inset-0 flex items-center justify-center text-[11px] font-bold">0%</div>
+        </div>
+        <div class="min-w-0">
+          <div class="text-xs text-slate-400 mb-1">已用空间</div>
+          <div id="storage-text" class="text-sm font-semibold truncate">—</div>
+          <div id="storage-count" class="text-[11px] text-slate-500 mt-0.5">— 个文件</div>
+        </div>
+      </div>
+    </div>
+    <button id="btn-logout" class="btn-ghost rounded-xl px-4 py-2.5 text-sm text-slate-300 hidden lg:block">退出登录</button>
+  </aside>
+
+  <!-- 主内容 -->
+  <main class="flex-1 min-w-0 p-5 lg:p-8 max-w-[1400px] w-full mx-auto">
+    <header class="flex items-center gap-3 mb-6">
+      <div class="relative flex-1 max-w-md">
+        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500">🔍</span>
+        <input id="search-input" placeholder="搜索文件名…"
+          class="w-full glass rounded-2xl pl-11 pr-4 py-3 text-sm placeholder:text-slate-500 transition">
+      </div>
+      <button id="btn-upload" class="btn-grad rounded-2xl px-5 py-3 text-sm font-semibold whitespace-nowrap">⬆ 上传文件</button>
+      <button id="btn-logout-m" class="btn-ghost rounded-2xl px-4 py-3 text-sm lg:hidden">退出</button>
+    </header>
+
+    <!-- 文件页 -->
+    <section id="page-files">
+      <div id="dropzone" class="glass rounded-3xl border-2 border-dashed !border-white/12 p-8 lg:p-10 text-center cursor-pointer mb-6">
+        <div class="text-4xl mb-3">📤</div>
+        <div class="font-semibold mb-1">拖拽文件到这里, 或 <span class="grad-text font-bold">点击选择</span></div>
+        <div class="text-xs text-slate-500">单文件最大 <span id="max-size-label">5 GB</span> · 文件直传 R2, 不经过服务器中转</div>
+      </div>
+      <input id="file-input" type="file" multiple class="hidden">
+
+      <div class="flex items-center justify-between mb-4">
+        <div class="text-sm text-slate-400"><span id="file-count" class="text-white font-semibold">0</span> 个文件</div>
+        <select id="sort-select" class="glass rounded-xl px-3 py-2 text-sm bg-transparent">
+          <option value="time">按时间排序</option>
+          <option value="size">按大小排序</option>
+          <option value="name">按名称排序</option>
+        </select>
+      </div>
+
+      <div id="file-grid" class="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4"></div>
+
+      <div id="empty-state" class="hidden text-center py-20">
+        <div class="text-6xl mb-4 opacity-60">🗂️</div>
+        <div class="font-semibold mb-1">还没有文件</div>
+        <div class="text-sm text-slate-500">把视频拖进来, 生成链接发给朋友吧</div>
+      </div>
+
+      <div class="text-center mt-8">
+        <button id="btn-more" class="btn-ghost rounded-2xl px-8 py-3 text-sm hidden">加载更多</button>
+      </div>
+    </section>
+
+    <!-- 分享页 -->
+    <section id="page-shares" class="hidden">
+      <div class="glass rounded-3xl overflow-hidden">
+        <div class="px-6 py-4 border-b border-white/8 flex items-center justify-between">
+          <div class="font-semibold">分享链接 <span id="share-count" class="text-slate-400 text-sm font-normal"></span></div>
+        </div>
+        <div id="share-list"></div>
+        <div id="share-empty" class="hidden text-center py-16">
+          <div class="text-5xl mb-3 opacity-60">🔗</div>
+          <div class="text-sm text-slate-500">还没有创建过分享链接<br>在文件卡片上点「分享」即可生成</div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- 上传队列 -->
+<div id="upload-panel" class="hidden fixed bottom-5 right-5 w-[380px] max-w-[calc(100vw-40px)] glass-strong rounded-2xl overflow-hidden z-40 shadow-2xl">
+  <div class="px-5 py-3.5 border-b border-white/8 flex items-center justify-between">
+    <div class="text-sm font-semibold">上传队列 <span id="queue-count" class="text-slate-400 font-normal"></span></div>
+    <button id="queue-toggle" class="text-slate-400 hover:text-white text-lg leading-none">–</button>
+  </div>
+  <div id="queue-list" class="max-h-[320px] overflow-y-auto"></div>
+</div>
+
+<!-- 预览弹窗 -->
+<div id="modal-preview" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center p-4">
+  <div class="modal-panel glass-strong rounded-3xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col md:flex-row">
+    <div id="preview-media" class="flex-1 bg-black/50 min-h-[280px] flex items-center justify-center md:max-h-[90vh] overflow-hidden"></div>
+    <div class="w-full md:w-72 shrink-0 p-6 border-t md:border-t-0 md:border-l border-white/8 flex flex-col">
+      <div id="preview-name" class="font-semibold break-all mb-3 leading-relaxed"></div>
+      <div id="preview-meta" class="text-xs text-slate-400 space-y-2 mb-6"></div>
+      <div class="mt-auto space-y-2.5">
+        <button id="preview-share" class="btn-grad w-full py-3 rounded-xl text-sm font-semibold">🔗 生成分享链接</button>
+        <a id="preview-download" class="btn-ghost w-full py-3 rounded-xl text-sm text-center block" download>⬇ 下载</a>
+        <button id="preview-delete" class="w-full py-3 rounded-xl text-sm text-red-400 hover:bg-red-500/10 transition">🗑 删除文件</button>
+      </div>
+      <button class="modal-close mt-4 text-xs text-slate-500 hover:text-white transition">关闭 ✕</button>
+    </div>
+  </div>
+</div>
+
+<!-- 分享弹窗 -->
+<div id="modal-share" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center p-4">
+  <div class="modal-panel glass-strong rounded-3xl w-full max-w-md p-8">
+    <div class="text-lg font-bold mb-1">生成分享链接</div>
+    <div id="share-file-name" class="text-sm text-slate-400 mb-6 truncate"></div>
+    <div id="share-form">
+      <div class="text-sm font-medium mb-3 text-slate-300">有效期</div>
+      <div class="flex flex-wrap gap-2 mb-6">
+        <label class="expiry-pill"><input type="radio" name="expiry" value="86400" checked><span>1 天</span></label>
+        <label class="expiry-pill"><input type="radio" name="expiry" value="604800"><span>7 天</span></label>
+        <label class="expiry-pill"><input type="radio" name="expiry" value="2592000"><span>30 天</span></label>
+        <label class="expiry-pill"><input type="radio" name="expiry" value="0"><span>永久</span></label>
+      </div>
+      <div class="text-sm font-medium mb-3 text-slate-300">提取密码 <span class="text-slate-500 font-normal">(可选)</span></div>
+      <input id="share-password" type="text" placeholder="留空则无密码" autocomplete="off"
+        class="w-full px-4 py-3 rounded-xl bg-black/30 border border-white/10 text-sm placeholder:text-slate-600 mb-6 transition">
+      <button id="share-create" class="btn-grad w-full py-3.5 rounded-xl text-sm font-semibold">生 成 链 接</button>
+    </div>
+    <div id="share-result" class="hidden">
+      <div class="text-sm font-medium mb-3 text-slate-300">分享链接已生成 🎉</div>
+      <div class="flex gap-2 mb-4">
+        <input id="share-url" readonly class="flex-1 px-4 py-3 rounded-xl bg-black/30 border border-white/10 text-sm text-slate-300">
+        <button id="share-copy" class="btn-grad px-5 rounded-xl text-sm font-semibold whitespace-nowrap">复制</button>
+      </div>
+      <div class="flex items-start gap-4">
+        <div id="share-qr" class="bg-white p-2.5 rounded-xl shrink-0"></div>
+        <div class="text-xs text-slate-500 leading-relaxed pt-1">手机扫码即可打开<br>链接可转发给任何人<br><a id="share-open" target="_blank" class="text-indigo-300 hover:text-indigo-200 underline">在新标签页打开 →</a></div>
+      </div>
+      <button id="share-again" class="btn-ghost w-full py-3 rounded-xl text-sm mt-6">再生成一个</button>
+    </div>
+    <button class="modal-close mt-5 w-full text-xs text-slate-500 hover:text-white transition">关闭 ✕</button>
+  </div>
+</div>
+
+<!-- 确认弹窗 -->
+<div id="modal-confirm" class="hidden fixed inset-0 z-50 modal-bg flex items-center justify-center p-4">
+  <div class="modal-panel glass-strong rounded-3xl w-full max-w-sm p-8 text-center">
+    <div class="text-5xl mb-4">⚠️</div>
+    <div id="confirm-title" class="font-bold mb-2">确认删除?</div>
+    <div id="confirm-desc" class="text-sm text-slate-400 mb-6 leading-relaxed"></div>
+    <div class="flex gap-3">
+      <button class="modal-close btn-ghost flex-1 py-3 rounded-xl text-sm">取消</button>
+      <button id="confirm-ok" class="flex-1 py-3 rounded-xl text-sm font-semibold text-white"
+              style="background:linear-gradient(135deg,#ef4444,#dc2626);box-shadow:0 8px 24px rgba(239,68,68,.35)">确认删除</button>
+    </div>
+  </div>
+</div>
+
+<div id="toasts" class="fixed bottom-5 left-5 z-[60] space-y-2.5 w-[320px] max-w-[calc(100vw-40px)]"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+/* ============================================================
+   CunDrop · 前端
+   ============================================================ */
+'use strict';
+
+/* ---------- 工具 ---------- */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function formatBytes(n) {
+  n = Number(n) || 0;
+  if (n < 1024) return n + ' B';
+  const units = ['KB','MB','GB','TB'];
+  let v = n / 1024, u = 0;
+  while (v >= 1024 && u < units.length - 1) { v /= 1024; u++; }
+  return (v >= 100 ? Math.round(v) : v.toFixed(v >= 10 ? 1 : 2)) + ' ' + units[u];
+}
+function formatDate(ts) {
+  const d = new Date(ts);
+  const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function formatSpeed(bps) {
+  return formatBytes(bps) + '/s';
+}
+function formatETA(sec) {
+  if (!isFinite(sec) || sec < 0) return '--';
+  sec = Math.round(sec);
+  if (sec < 60) return sec + '秒';
+  if (sec < 3600) return Math.floor(sec/60) + '分' + (sec%60) + '秒';
+  return Math.floor(sec/3600) + '小时' + Math.floor((sec%3600)/60) + '分';
+}
+
+function fileKind(mime, name) {
+  mime = mime || '';
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  if (mime.startsWith('video/') || ['mp4','mkv','webm','mov','avi','m4v'].includes(ext)) return 'video';
+  if (mime.startsWith('image/') || ['jpg','jpeg','png','gif','webp','bmp','svg','heic'].includes(ext)) return 'image';
+  if (mime.startsWith('audio/') || ['mp3','wav','flac','m4a','ogg','aac'].includes(ext)) return 'audio';
+  if (mime === 'application/pdf' || ext === 'pdf') return 'pdf';
+  if (mime.startsWith('text/') || ['txt','md','json','log','srt','ass','lrc','xml','yaml','yml','csv'].includes(ext)) return 'text';
+  if (['zip','rar','7z','tar','gz'].includes(ext)) return 'archive';
+  return 'other';
+}
+
+const KIND_ICON = {
+  video:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="w-9 h-9"><rect x="2.5" y="5" width="19" height="14" rx="3"/><path d="M10 9.5v5l4.5-2.5z" fill="currentColor" stroke="none"/></svg>',
+  image:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="w-9 h-9"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M4.5 18l4.5-4.5 3 3 3.5-3.5 4 4"/></svg>',
+  audio:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="w-9 h-9"><path d="M9 18V6l10-2v11"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="15" r="2.5"/></svg>',
+  pdf:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="w-9 h-9"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v4h4"/></svg>',
+  text:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="w-9 h-9"><path d="M6 2h12v20H6z"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>',
+  archive:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="w-9 h-9"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
+  other:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" class="w-9 h-9"><path d="M6 2h8l4 4v16H6z"/><path d="M14 2v4h4"/></svg>',
+};
+const KIND_GRAD = {
+  video:  'linear-gradient(135deg,rgba(239,68,68,.25),rgba(168,85,247,.25))',
+  image:  'linear-gradient(135deg,rgba(34,211,238,.22),rgba(99,102,241,.25))',
+  audio:  'linear-gradient(135deg,rgba(52,211,153,.22),rgba(34,211,238,.22))',
+  pdf:    'linear-gradient(135deg,rgba(248,113,113,.22),rgba(251,146,60,.22))',
+  text:   'linear-gradient(135deg,rgba(148,163,184,.25),rgba(99,102,241,.2))',
+  archive:'linear-gradient(135deg,rgba(251,191,36,.2),rgba(251,146,60,.22))',
+  other:  'linear-gradient(135deg,rgba(148,163,184,.2),rgba(100,116,139,.25))',
+};
+
+/* ---------- API ---------- */
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    credentials: 'include',
+    headers: { 'content-type': 'application/json' },
+    ...opts,
+  });
+  if (res.status === 401) { showLogin(); throw new Error('登录已过期, 请重新登录'); }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || ('请求失败(' + res.status + ')'));
+  return data;
+}
+
+/* ---------- Toast ---------- */
+function toast(msg, type = 'info') {
+  const colors = { info:'border-indigo-400/40', success:'border-emerald-400/40', error:'border-red-400/40' };
+  const icons = { info:'💡', success:'✅', error:'⚠️' };
+  const el = document.createElement('div');
+  el.className = `toast glass-strong rounded-2xl px-4 py-3.5 text-sm border ${colors[type]} flex items-start gap-2.5 shadow-xl`;
+  el.innerHTML = `<span class="text-base leading-none mt-0.5">${icons[type]}</span><span class="leading-relaxed">${esc(msg)}</span>`;
+  $('#toasts').appendChild(el);
+  setTimeout(() => { el.classList.add('hide'); setTimeout(() => el.remove(), 320); }, 3400);
+}
+
+/* ---------- 全局状态 ---------- */
+let me = null;
+let files = [];          // 已加载的全部文件
+let totalFiles = 0, totalBytes = 0, hasMore = false, loadingMore = false;
+let shares = [];
+let currentPreviewKey = null;
+let shareFileKey = null;
+
+/* ---------- 视图切换 ---------- */
+function showLogin() {
+  $('#view-app').classList.add('hidden');
+  $('#view-app').classList.remove('flex');
+  $('#view-login').classList.remove('hidden');
+}
+function showApp() {
+  $('#view-login').classList.add('hidden');
+  const app = $('#view-app');
+  app.classList.remove('hidden');
+  app.classList.add('flex');
+}
+function switchPage(page) {
+  $$('.nav-btn').forEach((b) => {
+    const active = b.dataset.page === page;
+    b.classList.toggle('btn-grad', active);
+    b.classList.toggle('text-white', active);
+    b.classList.toggle('text-slate-400', !active);
+    b.classList.toggle('hover:bg-white/5', !active);
+  });
+  $('#page-files').classList.toggle('hidden', page !== 'files');
+  $('#page-shares').classList.toggle('hidden', page !== 'shares');
+  if (page === 'shares') loadShares();
+}
+
+/* ---------- 文件渲染 ---------- */
+function filteredFiles() {
+  const q = $('#search-input').value.trim().toLowerCase();
+  const sort = $('#sort-select').value;
+  let list = files.filter((f) => !q || f.name.toLowerCase().includes(q));
+  if (sort === 'size') list = [...list].sort((a, b) => b.size - a.size);
+  else if (sort === 'name') list = [...list].sort((a, b) => a.name.localeCompare(b.name, 'zh-CN'));
+  else list = [...list].sort((a, b) => b.uploadedAt - a.uploadedAt);
+  return list;
+}
+
+function thumbHtml(f) {
+  const kind = fileKind(f.mime, f.name);
+  if (kind === 'image') {
+    return `<img data-thumb loading="lazy" src="/f/${f.key}" alt="" class="thumb-img w-full h-full object-cover">`;
+  }
+  if (kind === 'video') {
+    return `<div data-vthumb="${f.key}" class="w-full h-full flex items-center justify-center" style="background:${KIND_GRAD.video}">
+      <span class="text-indigo-200">${KIND_ICON.video}</span>
+      <span class="absolute bottom-2 right-2 text-[10px] px-2 py-0.5 rounded-full bg-black/60 text-slate-300">视频</span>
+    </div>`;
+  }
+  return `<div class="w-full h-full flex items-center justify-center text-slate-300" style="background:${KIND_GRAD[kind]}">
+    <span class="opacity-80">${KIND_ICON[kind]}</span></div>`;
+}
+
+function renderFiles() {
+  const list = filteredFiles();
+  const grid = $('#file-grid');
+  $('#file-count').textContent = totalFiles;
+  $('#empty-state').classList.toggle('hidden', files.length > 0);
+  grid.innerHTML = list.map((f) => `
+    <div class="group glass rounded-2xl overflow-hidden card-hover fade-up" data-key="${f.key}">
+      <div class="relative aspect-[16/10] overflow-hidden cursor-pointer" data-act="preview">
+        ${thumbHtml(f)}
+        <div class="file-actions absolute inset-x-2 bottom-2 flex gap-1.5 justify-center">
+          <button data-act="preview" title="预览" class="w-9 h-9 rounded-xl bg-black/65 backdrop-blur text-sm hover:bg-indigo-500/80 transition">👁</button>
+          <button data-act="share" title="分享" class="w-9 h-9 rounded-xl bg-black/65 backdrop-blur text-sm hover:bg-indigo-500/80 transition">🔗</button>
+          <button data-act="download" title="下载" class="w-9 h-9 rounded-xl bg-black/65 backdrop-blur text-sm hover:bg-indigo-500/80 transition">⬇</button>
+          <button data-act="delete" title="删除" class="w-9 h-9 rounded-xl bg-black/65 backdrop-blur text-sm hover:bg-red-500/80 transition">🗑</button>
+        </div>
+      </div>
+      <div class="p-3.5">
+        <div class="text-[13px] font-medium truncate mb-1.5" title="${esc(f.name)}">${esc(f.name)}</div>
+        <div class="text-[11px] text-slate-500 flex items-center justify-between">
+          <span>${formatBytes(f.size)}</span><span>${formatDate(f.uploadedAt)}</span>
+        </div>
+      </div>
+    </div>`).join('');
+  $('#btn-more').classList.toggle('hidden', !hasMore);
+  observeVideoThumbs();
+}
+
+/* 视频缩略图: 懒加载, 截取第 1 秒 */
+let thumbObserver = null;
+function observeVideoThumbs() {
+  if (!thumbObserver) {
+    thumbObserver = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) { thumbObserver.unobserve(e.target); genVideoThumb(e.target); }
+      });
+    }, { rootMargin: '200px' });
+  }
+  $$('[data-vthumb]').forEach((el) => { if (!el.dataset.done) thumbObserver.observe(el); });
+}
+function genVideoThumb(el) {
+  el.dataset.done = '1';
+  const key = el.dataset.vthumb;
+  const v = document.createElement('video');
+  v.muted = true; v.playsInline = true; v.preload = 'metadata';
+  // 注意: 同源视频不要设置 crossOrigin, 否则 canvas 会被污染导致无法截图
+  let done = false;
+  const finish = (url) => {
+    if (done) return; done = true;
+    if (url) {
+      const img = document.createElement('img');
+      img.src = url; img.alt = '';
+      img.className = 'thumb-img w-full h-full object-cover';
+      el.innerHTML = ''; el.appendChild(img);
+    }
+    v.removeAttribute('src'); v.load();
+  };
+  const timer = setTimeout(() => finish(null), 9000);
+  v.addEventListener('loadeddata', () => {
+    try { v.currentTime = Math.min(1.2, (v.duration || 2) / 3); } catch { finish(null); }
+  });
+  v.addEventListener('seeked', () => {
+    try {
+      const c = document.createElement('canvas');
+      const w = 320, h = Math.max(120, Math.round(w * (v.videoHeight / v.videoWidth || 0.5625)));
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(v, 0, 0, w, h);
+      clearTimeout(timer);
+      finish(c.toDataURL('image/jpeg', 0.65));
+    } catch { clearTimeout(timer); finish(null); }
+  });
+  v.addEventListener('error', () => { clearTimeout(timer); finish(null); });
+  v.src = '/f/' + key;
+}
+
+/* 存储用量环 */
+function renderStorage() {
+  const CAP = 10 * 1024 * 1024 * 1024; // R2 免费额度 10GB, 仅作展示参考
+  const pct = Math.min(100, (totalBytes / CAP) * 100);
+  const C = 163.3;
+  $('#storage-ring').style.strokeDashoffset = String(C * (1 - pct / 100));
+  $('#storage-pct').textContent = (pct < 0.1 && totalBytes > 0 ? '<0.1' : pct.toFixed(pct < 10 ? 1 : 0)) + '%';
+  $('#storage-text').textContent = formatBytes(totalBytes) + ' / 10 GB';
+  $('#storage-count').textContent = totalFiles + ' 个文件';
+}
+
+/* ---------- 文件加载 ---------- */
+async function loadFiles(reset = true) {
+  if (reset) { files = []; }
+  const offset = files.length;
+  const data = await api(`/api/files?limit=60&offset=${offset}`);
+  files = files.concat(data.files);
+  totalFiles = data.total; totalBytes = data.totalBytes; hasMore = data.hasMore;
+  renderFiles(); renderStorage();
+}
+
+/* ---------- 上传队列 ---------- */
+const queue = [];
+let queueCollapsed = false;
+
+function addFiles(fileList) {
+  let skipped = 0;
+  for (const f of fileList) {
+    if (!f.size) { skipped++; continue; }
+    if (me && f.size > me.maxUploadSize) { skipped++; toast(`「${f.name}」超过单文件上限 ${formatBytes(me.maxUploadSize)}`, 'error'); continue; }
+    queue.push({ id: Math.random().toString(36).slice(2), file: f, status: 'queued', progress: 0, speed: 0, xhr: null, error: '' });
+  }
+  if (skipped && !me) toast(`跳过了 ${skipped} 个空文件`, 'error');
+  if (queue.length) { $('#upload-panel').classList.remove('hidden'); renderQueue(); processQueue(); }
+}
+
+function renderQueue() {
+  const active = queue.filter((q) => q.status === 'uploading' || q.status === 'queued').length;
+  $('#queue-count').textContent = active ? `(${active} 个进行中)` : '';
+  $('#queue-list').classList.toggle('hidden', queueCollapsed);
+  $('#queue-list').innerHTML = queue.map((q) => {
+    const pct = Math.round(q.progress * 100);
+    let right = '';
+    if (q.status === 'uploading') {
+      const remain = q.file.size * (1 - q.progress);
+      const eta = q.speed > 0 ? formatETA(remain / q.speed) : '--';
+      right = `<div class="text-[11px] text-slate-400 mt-1 flex justify-between"><span>${pct}% · ${formatSpeed(q.speed)}</span><span>剩余 ${eta}</span></div>
+        <button data-qcancel="${q.id}" class="text-[11px] text-slate-500 hover:text-red-400 mt-1 transition">取消</button>`;
+    } else if (q.status === 'done') {
+      right = `<div class="text-[11px] text-emerald-400 mt-1">✅ 上传完成</div>`;
+    } else if (q.status === 'error') {
+      right = `<div class="text-[11px] text-red-400 mt-1">❌ ${esc(q.error || '上传失败')}</div>
+        <button data-qretry="${q.id}" class="text-[11px] text-indigo-300 hover:text-indigo-200 mt-1 transition">重试</button>`;
+    } else {
+      right = `<div class="text-[11px] text-slate-500 mt-1">等待中…</div>`;
+    }
+    const bar = q.status === 'done'
+      ? `<div class="progress-track h-1.5 rounded-full mt-2"><div class="h-full rounded-full bg-emerald-400" style="width:100%"></div></div>`
+      : `<div class="progress-track h-1.5 rounded-full mt-2"><div class="progress-fill h-full rounded-full" style="width:${pct}%"></div></div>`;
+    return `<div class="px-5 py-3.5 border-b border-white/5" data-qid="${q.id}">
+      <div class="text-[13px] font-medium truncate" title="${esc(q.file.name)}">${esc(q.file.name)}</div>
+      <div class="text-[11px] text-slate-500">${formatBytes(q.file.size)}</div>
+      ${bar}${right}</div>`;
+  }).join('');
+}
+function renderQueueItem(q) {
+  const el = document.querySelector(`[data-qid="${q.id}"]`);
+  if (el) { renderQueue(); }
+}
+function removeFromQueue(id) {
+  const i = queue.findIndex((q) => q.id === id);
+  if (i >= 0) queue.splice(i, 1);
+  if (!queue.length) $('#upload-panel').classList.add('hidden');
+  renderQueue();
+}
+
+async function processQueue() {
+  if (queue.filter((q) => q.status === 'uploading').length >= 3) return;
+  const next = queue.find((q) => q.status === 'queued');
+  if (!next) return;
+  next.status = 'uploading'; renderQueue();
+  try {
+    const init = await api('/api/upload/init', {
+      method: 'POST',
+      body: JSON.stringify({ name: next.file.name, size: next.file.size, mime: next.file.type || 'application/octet-stream' }),
+    });
+    await putFile(init.url, next);
+    const done = await api('/api/upload/complete', {
+      method: 'POST',
+      body: JSON.stringify({ key: init.key, name: next.file.name, mime: next.file.type || 'application/octet-stream' }),
+    });
+    next.status = 'done'; next.progress = 1;
+    files.unshift(done.file); totalFiles++; totalBytes += done.file.size;
+    renderFiles(); renderStorage();
+    toast(`「${next.file.name}」上传完成`, 'success');
+    setTimeout(() => removeFromQueue(next.id), 4000);
+  } catch (e) {
+    next.status = 'error'; next.error = e.message || '上传失败';
+    if (e.message === '已取消') removeFromQueue(next.id);
+  }
+  renderQueue(); processQueue();
+}
+
+function putFile(url, item) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    item.xhr = xhr;
+    let lastLoaded = 0, lastT = Date.now();
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && e.total > 0) {
+        item.progress = e.loaded / e.total;
+        const now = Date.now(), dt = (now - lastT) / 1000;
+        if (dt >= 0.4) { item.speed = (e.loaded - lastLoaded) / dt; lastLoaded = e.loaded; lastT = now; }
+        renderQueueItem(item);
+      }
+    };
+    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error('上传失败(HTTP ' + xhr.status + ')')));
+    xhr.onerror = () => reject(new Error('网络错误, 请检查 R2 CORS 配置'));
+    xhr.onabort = () => reject(new Error('已取消'));
+    xhr.open('PUT', url);
+    xhr.send(item.file);
+  });
+}
+
+/* ---------- 预览 ---------- */
+function openPreview(key) {
+  const f = files.find((x) => x.key === key);
+  if (!f) return;
+  currentPreviewKey = key;
+  const kind = fileKind(f.mime, f.name);
+  const media = $('#preview-media');
+  const url = '/f/' + key;
+  if (kind === 'video') {
+    media.innerHTML = `<video controls preload="metadata" src="${url}" class="max-w-full max-h-[70vh] w-full" style="max-height:70vh"></video>`;
+  } else if (kind === 'image') {
+    media.innerHTML = `<img src="${url}" class="max-w-full object-contain" style="max-height:70vh" alt="">`;
+  } else if (kind === 'audio') {
+    media.innerHTML = `<div class="p-10 w-full text-center"><div class="text-6xl mb-6">🎵</div>
+      <audio controls preload="metadata" src="${url}" class="w-full"></audio></div>`;
+  } else if (kind === 'text' && f.size < 512 * 1024) {
+    media.innerHTML = `<div class="p-6 text-sm text-slate-300 whitespace-pre-wrap break-all overflow-auto w-full font-mono" style="max-height:70vh">加载中…</div>`;
+    fetch(url, { credentials: 'include' }).then((r) => r.text()).then((t) => {
+      media.firstChild.textContent = t.slice(0, 20000);
+    }).catch(() => { media.firstChild.textContent = '无法预览此文件'; });
+  } else {
+    media.innerHTML = `<div class="text-center p-10"><div class="text-7xl mb-4 opacity-70">${KIND_ICON[kind].replace('w-9 h-9','w-16 h-16')}</div>
+      <div class="text-slate-400 text-sm">此类型暂不支持在线预览</div></div>`;
+  }
+  $('#preview-name').textContent = f.name;
+  $('#preview-meta').innerHTML = `
+    <div>📦 大小: <span class="text-slate-200">${formatBytes(f.size)}</span></div>
+    <div>🏷 类型: <span class="text-slate-200">${esc(f.mime)}</span></div>
+    <div>🕐 上传: <span class="text-slate-200">${formatDate(f.uploadedAt)}</span></div>`;
+  const dl = $('#preview-download');
+  dl.href = url; dl.setAttribute('download', f.name);
+  openModal('#modal-preview');
+}
+
+/* ---------- 分享 ---------- */
+function openShare(key) {
+  const f = files.find((x) => x.key === key);
+  if (!f) return;
+  shareFileKey = key;
+  $('#share-file-name').textContent = f.name;
+  $('#share-form').classList.remove('hidden');
+  $('#share-result').classList.add('hidden');
+  $('#share-password').value = '';
+  $('#share-qr').innerHTML = '';
+  openModal('#modal-share');
+}
+async function createShare() {
+  const btn = $('#share-create');
+  btn.disabled = true; btn.textContent = '生成中…';
+  try {
+    const expiry = document.querySelector('input[name="expiry"]:checked').value;
+    const data = await api('/api/share', {
+      method: 'POST',
+      body: JSON.stringify({ key: shareFileKey, expiresInSec: Number(expiry), password: $('#share-password').value.trim() }),
+    });
+    $('#share-url').value = data.url;
+    $('#share-open').href = data.url;
+    $('#share-qr').innerHTML = '';
+    new QRCode($('#share-qr'), { text: data.url, width: 110, height: 110, correctLevel: QRCode.CorrectLevel.M });
+    $('#share-form').classList.add('hidden');
+    $('#share-result').classList.remove('hidden');
+    loadShares();
+    toast('分享链接已生成', 'success');
+  } catch (e) { toast(e.message, 'error'); }
+  btn.disabled = false; btn.textContent = '生 成 链 接';
+}
+
+/* ---------- 分享管理 ---------- */
+async function loadShares() {
+  try {
+    const data = await api('/api/shares');
+    shares = data.shares;
+    $('#share-count').textContent = `(${shares.length})`;
+    $('#share-empty').classList.toggle('hidden', shares.length > 0);
+    const expText = (s) => {
+      if (!s.expiresAt) return '<span class="text-emerald-300">永久有效</span>';
+      const left = s.expiresAt - Date.now();
+      if (left <= 0) return '<span class="text-red-400">已过期</span>';
+      const d = Math.floor(left / 86400000);
+      return `<span class="text-amber-300">${d > 0 ? '剩 ' + d + ' 天' : '今日过期'}</span>`;
+    };
+    $('#share-list').innerHTML = shares.map((s) => `
+      <div class="px-6 py-4 border-b border-white/5 flex items-center gap-4 hover:bg-white/[.02] transition">
+        <div class="text-2xl shrink-0">${fileKind(s.mime, s.name) === 'video' ? '🎬' : fileKind(s.mime, s.name) === 'image' ? '🖼️' : '📦'}</div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium truncate">${esc(s.name)}</div>
+          <div class="text-xs text-slate-500 mt-1 flex items-center gap-3 flex-wrap">
+            <span>${formatBytes(s.size)}</span>${s.hasPassword ? '<span class="text-amber-300">🔒 有密码</span>' : ''}
+            <span>${expText(s)}</span><span>⬇ ${s.downloads} 次</span>
+          </div>
+          <div class="text-xs text-indigo-300/80 truncate mt-1 font-mono">${esc(s.url)}</div>
+        </div>
+        <div class="flex gap-2 shrink-0">
+          <button data-share-copy="${esc(s.url)}" class="btn-ghost px-3.5 py-2 rounded-xl text-xs">复制链接</button>
+          <a href="${esc(s.url)}" target="_blank" class="btn-ghost px-3.5 py-2 rounded-xl text-xs inline-block">打开</a>
+          <button data-share-del="${s.id}" class="px-3.5 py-2 rounded-xl text-xs text-red-400 hover:bg-red-500/10 transition">撤销</button>
+        </div>
+      </div>`).join('');
+  } catch (e) { /* 忽略 */ }
+}
+
+/* ---------- 删除 ---------- */
+let confirmAction = null;
+function askConfirm(title, desc, action) {
+  $('#confirm-title').textContent = title;
+  $('#confirm-desc').innerHTML = desc;
+  confirmAction = action;
+  openModal('#modal-confirm');
+}
+async function deleteFile(key) {
+  const f = files.find((x) => x.key === key);
+  askConfirm('确认删除?', `「${esc(f ? f.name : '')}」将被永久删除,<br>指向它的分享链接也会同时失效。`, async () => {
+    await api('/api/files/' + key, { method: 'DELETE' });
+    const i = files.findIndex((x) => x.key === key);
+    if (i >= 0) { totalBytes -= files[i].size; files.splice(i, 1); totalFiles--; }
+    closeModals(); renderFiles(); renderStorage(); loadShares();
+    toast('文件已删除', 'success');
+  });
+}
+
+/* ---------- 弹窗 ---------- */
+function openModal(sel) { $(sel).classList.remove('hidden'); }
+function closeModals() {
+  ['#modal-preview', '#modal-share', '#modal-confirm'].forEach((s) => $(s).classList.add('hidden'));
+  const v = $('#preview-media').querySelector('video, audio');
+  if (v) v.pause();
+}
+
+/* ---------- 事件绑定 ---------- */
+function bindEvents() {
+  // 登录
+  $('#login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pwd = $('#login-password').value;
+    $('#login-error').textContent = '';
+    try {
+      await api('/api/login', { method: 'POST', body: JSON.stringify({ password: pwd }) });
+      $('#login-password').value = '';
+      await boot();
+    } catch (err) {
+      $('#login-error').textContent = err.message;
+      $('#login-form').classList.remove('shake'); void $('#login-form').offsetWidth;
+      $('#login-form').classList.add('shake');
+    }
+  });
+
+  const doLogout = async () => { await api('/api/logout', { method: 'POST' }).catch(() => {}); showLogin(); };
+  $('#btn-logout').addEventListener('click', doLogout);
+  $('#btn-logout-m').addEventListener('click', doLogout);
+
+  // 导航
+  $$('.nav-btn').forEach((b) => b.addEventListener('click', () => switchPage(b.dataset.page)));
+
+  // 上传
+  const dz = $('#dropzone'), fi = $('#file-input');
+  $('#btn-upload').addEventListener('click', () => fi.click());
+  dz.addEventListener('click', () => fi.click());
+  fi.addEventListener('change', () => { addFiles(fi.files); fi.value = ''; });
+  let dragDepth = 0;
+  window.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; dz.classList.add('dragging'); });
+  window.addEventListener('dragleave', (e) => { e.preventDefault(); if (--dragDepth <= 0) { dragDepth = 0; dz.classList.remove('dragging'); } });
+  window.addEventListener('dragover', (e) => e.preventDefault());
+  window.addEventListener('drop', (e) => {
+    e.preventDefault(); dragDepth = 0; dz.classList.remove('dragging');
+    if (e.dataTransfer?.files?.length) addFiles(e.dataTransfer.files);
+  });
+  $('#queue-toggle').addEventListener('click', () => {
+    queueCollapsed = !queueCollapsed;
+    $('#queue-toggle').textContent = queueCollapsed ? '+' : '–';
+    $('#queue-list').classList.toggle('hidden', queueCollapsed);
+  });
+  $('#queue-list').addEventListener('click', (e) => {
+    const c = e.target.closest('[data-qcancel]');
+    const r = e.target.closest('[data-qretry]');
+    if (c) { const q = queue.find((x) => x.id === c.dataset.qcancel); if (q?.xhr) q.xhr.abort(); }
+    if (r) { const q = queue.find((x) => x.id === r.dataset.qretry); if (q) { q.status = 'queued'; q.progress = 0; q.error = ''; renderQueue(); processQueue(); } }
+  });
+
+  // 搜索 / 排序 / 加载更多
+  $('#search-input').addEventListener('input', renderFiles);
+  $('#sort-select').addEventListener('change', renderFiles);
+  $('#btn-more').addEventListener('click', async () => {
+    if (loadingMore) return; loadingMore = true;
+    try { await loadFiles(false); } catch (e) { toast(e.message, 'error'); }
+    loadingMore = false;
+  });
+
+  // 文件卡片操作(事件委托)
+  $('#file-grid').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-act]');
+    if (!btn) return;
+    e.stopPropagation();
+    const key = btn.closest('[data-key]').dataset.key;
+    const act = btn.dataset.act;
+    if (act === 'preview') openPreview(key);
+    else if (act === 'share') openShare(key);
+    else if (act === 'download') { const a = document.createElement('a'); a.href = '/f/' + key; a.download = ''; document.body.appendChild(a); a.click(); a.remove(); }
+    else if (act === 'delete') deleteFile(key);
+  });
+
+  // 预览弹窗内操作
+  $('#preview-share').addEventListener('click', () => { if (currentPreviewKey) { closeModals(); openShare(currentPreviewKey); } });
+  $('#preview-delete').addEventListener('click', () => { if (currentPreviewKey) deleteFile(currentPreviewKey); });
+
+  // 分享弹窗
+  $('#share-create').addEventListener('click', createShare);
+  $('#share-copy').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText($('#share-url').value); toast('链接已复制到剪贴板', 'success'); }
+    catch { $('#share-url').select(); document.execCommand('copy'); toast('链接已复制', 'success'); }
+  });
+  $('#share-again').addEventListener('click', () => {
+    $('#share-form').classList.remove('hidden'); $('#share-result').classList.add('hidden');
+  });
+
+  // 分享列表操作
+  $('#share-list').addEventListener('click', async (e) => {
+    const cp = e.target.closest('[data-share-copy]');
+    const del = e.target.closest('[data-share-del]');
+    if (cp) {
+      try { await navigator.clipboard.writeText(cp.dataset.shareCopy); toast('链接已复制', 'success'); }
+      catch { toast('复制失败, 请手动复制', 'error'); }
+    }
+    if (del) {
+      askConfirm('撤销分享?', '该链接将立即失效, 文件本身不受影响。', async () => {
+        await api('/api/shares/' + del.dataset.shareDel, { method: 'DELETE' });
+        closeModals(); loadShares(); toast('分享已撤销', 'success');
+      });
+    }
+  });
+
+  // 弹窗关闭
+  $$('.modal-close').forEach((b) => b.addEventListener('click', closeModals));
+  ['#modal-preview', '#modal-share', '#modal-confirm'].forEach((s) =>
+    $(s).addEventListener('click', (e) => { if (e.target === $(s)) closeModals(); }));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModals(); });
+  $('#confirm-ok').addEventListener('click', async () => {
+    if (!confirmAction) return;
+    const fn = confirmAction; confirmAction = null;
+    try { await fn(); } catch (e) { closeModals(); toast(e.message, 'error'); }
+  });
+}
+
+/* ---------- 启动 ---------- */
+async function boot() {
+  try {
+    me = await api('/api/me');
+  } catch { showLogin(); return; }
+  if (!me.authenticated) { showLogin(); return; }
+  showApp();
+  $('#max-size-label').textContent = formatBytes(me.maxUploadSize);
+  switchPage('files');
+  try { await loadFiles(true); }
+  catch (e) { toast('加载文件列表失败: ' + e.message, 'error'); }
+}
+
+bindEvents();
+boot();
+</script>
+</body>
+</html>
