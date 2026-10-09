@@ -27,9 +27,8 @@ id = "3ba7a84fabcc429abb39a7f806bc4d9e"
 [vars]
 BUCKET_NAME = "cundrop-storage" # 与上面的 bucket_name 保持一致
 R2_ACCOUNT_ID = "74afe3f3d9f2db4bb3ff5b23da2b0623" #
-
-# 以下敏感配置请用 `wrangler secret put <名字>` 设置, 不要写进文件:
-# ADMIN_PASSWORD 登录密码(自己设定一个强密码)
-# R2_ACCESS_KEY_ID R2 API Token 的 Access Key ID
-# R2_SECRET_ACCESS_KEY R2 API Token 的 Secret Access Key
-# SESSION_SECRET 任意随机长字符串(用于签名会话 cookie)
+# 注: 本应通过 Secret 配置, 但该账号的 Secret 同步到运行时有问题, 暂写在这里。
+# R2 密钥泄露后请去 R2 → Manage R2 API Tokens 轮换。
+R2_ACCESS_KEY_ID = "f61c603ccaefe51e739ae336350d46fb"
+R2_SECRET_ACCESS_KEY = "db16474d9560a3ad3566ecbedaad39e4c2ec8616ab8e0e7a5f6192c5ad790d33"
+SESSION_SECRET = "ec701498bafd23b9fabf64080f1b796c00db1916fe4c115d06f9609eabe82bf6"
