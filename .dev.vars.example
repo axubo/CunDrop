@@ -1,0 +1,5 @@
+# 本地开发用: 复制为 .dev.vars 并填入真实值 (该文件不会被 git 提交)
+ADMIN_PASSWORD=dev-password-123
+R2_ACCESS_KEY_ID=your-r2-access-key-id
+R2_SECRET_ACCESS_KEY=your-r2-secret-access-key
+SESSION_SECRET=dev-session-secret-change-me
