@@ -1,0 +1,1 @@
+{"description":"CunDrop —— 基于 Cloudflare R2 的私人云盘 / 文件分享站","devDependencies":{"@cloudflare/workers-types":"^5.20261009.1","typescript":"^5.5.0","wrangler":"^4.149.0"},"license":"MIT","name":"cundrop","scripts":{"deploy":"wrangler deploy","dev":"wrangler dev","typecheck":"tsc --noEmit"},"type":"module","version":"1.0.0"}
