@@ -5,6 +5,7 @@ import {
   createShareToken,
   hashSharePassword,
   sessionCookie,
+  sha256Hex,
   shareCookie,
   verifySession,
   verifyShareToken,
@@ -163,13 +164,32 @@ export default {
     const method = req.method;
 
     try {
-      // ===== 登录 / 会话 =====
-      if (path === "/api/login" && method === "POST") {
-        if (!env.ADMIN_PASSWORD) {
-          return json({ error: "管理员密码未配置：请去 Cloudflare → Variables and Secrets 添加 ADMIN_PASSWORD（机密类型）" }, 500);
-        }
+      // ===== 登录 / 会话（密码哈希存 KV，首次使用时在页面上设置）=====
+      const PW_KEY = "admin_pw_hash";
+      if (path === "/api/me" && method === "GET") {
+        const hash = await env.KV.get(PW_KEY);
+        const authed = hash ? await verifySession(env, req.headers.get("cookie")) : false;
+        return json({ authenticated: authed, passwordSet: !!hash, maxUploadSize: MAX_UPLOAD_SIZE });
+      }
+
+      // 首次设置管理员密码（仅当从未设置过时可用）
+      if (path === "/api/setup" && method === "POST") {
+        const existing = await env.KV.get(PW_KEY);
+        if (existing) return json({ error: "密码已设置" }, 400);
         const body = await readJson<{ password?: string }>(req);
-        if (body?.password && body.password === env.ADMIN_PASSWORD) {
+        const pw = (body?.password || "").trim();
+        if (pw.length < 4) return json({ error: "密码至少 4 位" }, 400);
+        await env.KV.put(PW_KEY, await sha256Hex("cundrop-admin:" + pw));
+        const token = await createSession(env);
+        return json({ ok: true }, 200, { "set-cookie": sessionCookie(token, 7 * 86400) });
+      }
+
+      if (path === "/api/login" && method === "POST") {
+        const hash = await env.KV.get(PW_KEY);
+        if (!hash) return json({ error: "请先设置管理员密码", needSetup: true }, 400);
+        const body = await readJson<{ password?: string }>(req);
+        const inputHash = await sha256Hex("cundrop-admin:" + (body?.password || ""));
+        if (inputHash === hash) {
           const token = await createSession(env);
           return json({ ok: true }, 200, { "set-cookie": sessionCookie(token, 7 * 86400) });
         }
@@ -180,12 +200,26 @@ export default {
         return json({ ok: true }, 200, { "set-cookie": clearSessionCookie() });
       }
 
-      if (path === "/api/me" && method === "GET") {
-        // 已移除密码登录：直接视为已登录
-        return json({ authenticated: true, maxUploadSize: MAX_UPLOAD_SIZE });
+      // 修改密码（需先登录）
+      if (path === "/api/change-password" && method === "POST") {
+        const authed = await verifySession(env, req.headers.get("cookie"));
+        if (!authed) return json({ error: "未登录" }, 401);
+        const body = await readJson<{ password?: string }>(req);
+        const pw = (body?.password || "").trim();
+        if (pw.length < 4) return json({ error: "密码至少 4 位" }, 400);
+        await env.KV.put(PW_KEY, await sha256Hex("cundrop-admin:" + pw));
+        return json({ ok: true });
       }
 
-      // ===== 以下 API 需要登录（已移除密码，直接放行）=====
+      // ===== 以下 API 需要登录 =====
+      {
+        const authed = await verifySession(env, req.headers.get("cookie"));
+        const needAuth = path.startsWith("/api/") || path.startsWith("/f/");
+        const publicPaths = ["/api/me", "/api/login", "/api/setup"];
+        if (needAuth && !authed && !publicPaths.includes(path)) {
+          return json({ error: "未登录" }, 401);
+        }
+      }
 
       // ===== 上传: 申请预签名 URL(浏览器直传 R2) =====
       if (path === "/api/upload/init" && method === "POST") {
