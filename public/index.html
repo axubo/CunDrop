@@ -72,6 +72,35 @@ tailwind.config = {
 </head>
 <body class="font-sans antialiased">
 
+<!-- ============ 首次设置密码页 ============ -->
+<div id="view-setup" class="hidden min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
+  <div class="orb w-96 h-96 bg-indigo-600/40 -top-20 -left-20"></div>
+  <div class="orb w-80 h-80 bg-purple-600/30 top-1/3 -right-16" style="animation-delay:-3s"></div>
+  <div class="orb w-72 h-72 bg-cyan-500/20 bottom-0 left-1/3" style="animation-delay:-6s"></div>
+
+  <div class="glass rounded-3xl p-10 w-full max-w-md relative fade-up">
+    <div class="flex items-center gap-3 mb-8">
+      <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
+           style="background:linear-gradient(135deg,#6d7cff,#a855f7);box-shadow:0 8px 24px rgba(109,124,255,.45)">☁️</div>
+      <div>
+        <div class="text-xl font-bold tracking-wide grad-text">CunDrop</div>
+        <div class="text-xs text-slate-400 mt-0.5 tracking-widest">PRIVATE CLOUD DRIVE</div>
+      </div>
+    </div>
+    <h1 class="text-2xl font-bold mb-2">设置管理员密码</h1>
+    <p class="text-sm text-slate-400 mb-8">首次使用，请设置一个管理员密码（至少 4 位）</p>
+    <form id="setup-form">
+      <input id="setup-password" type="password" placeholder="设置密码" autocomplete="new-password"
+        class="w-full px-5 py-4 rounded-2xl bg-black/30 border border-white/10 text-[15px] placeholder:text-slate-500 mb-4 transition">
+      <input id="setup-password2" type="password" placeholder="再次确认密码" autocomplete="new-password"
+        class="w-full px-5 py-4 rounded-2xl bg-black/30 border border-white/10 text-[15px] placeholder:text-slate-500 mb-4 transition">
+      <div id="setup-error" class="text-sm text-red-400 mb-4 h-5"></div>
+      <button type="submit" class="btn-grad w-full py-4 rounded-2xl font-semibold text-[15px]">设 置 并 进 入</button>
+    </form>
+    <p class="text-xs text-slate-500 mt-8 text-center">Cloudflare R2 强力驱动 · 数据完全属于你自己</p>
+  </div>
+</div>
+
 <!-- ============ 登录页 ============ -->
 <div id="view-login" class="min-h-screen flex items-center justify-center p-6 relative overflow-hidden">
   <div class="orb w-96 h-96 bg-indigo-600/40 -top-20 -left-20"></div>
@@ -139,6 +168,7 @@ tailwind.config = {
         </div>
       </div>
     </div>
+    <button id="btn-chpw" class="btn-ghost rounded-xl px-4 py-2.5 text-sm text-slate-300 hidden lg:block">修改密码</button>
     <button id="btn-logout" class="btn-ghost rounded-xl px-4 py-2.5 text-sm text-slate-300 hidden lg:block">退出登录</button>
   </aside>
 
@@ -376,13 +406,22 @@ let currentPreviewKey = null;
 let shareFileKey = null;
 
 /* ---------- 视图切换 ---------- */
-function showLogin() {
+function hideAllViews() {
   $('#view-app').classList.add('hidden');
   $('#view-app').classList.remove('flex');
+  $('#view-login').classList.add('hidden');
+  $('#view-setup').classList.add('hidden');
+}
+function showSetup() {
+  hideAllViews();
+  $('#view-setup').classList.remove('hidden');
+}
+function showLogin() {
+  hideAllViews();
   $('#view-login').classList.remove('hidden');
 }
 function showApp() {
-  $('#view-login').classList.add('hidden');
+  hideAllViews();
   const app = $('#view-app');
   app.classList.remove('hidden');
   app.classList.add('flex');
@@ -755,6 +794,29 @@ function closeModals() {
 /* ---------- 事件绑定 ---------- */
 function bindEvents() {
   // 登录
+  $('#setup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const pwd = $('#setup-password').value;
+    const pwd2 = $('#setup-password2').value;
+    $('#setup-error').textContent = '';
+    if (pwd !== pwd2) { $('#setup-error').textContent = '两次输入的密码不一致'; return; }
+    if (pwd.trim().length < 4) { $('#setup-error').textContent = '密码至少 4 位'; return; }
+    try {
+      const res = await fetch('/api/setup', {
+        method: 'POST', credentials: 'include',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ password: pwd }),
+      });
+      const d = await res.json().catch(() => null);
+      if (!res.ok) throw new Error((d && d.error) || ('请求失败(' + res.status + ')'));
+      $('#setup-password').value = '';
+      $('#setup-password2').value = '';
+      await boot();
+    } catch (err) {
+      $('#setup-error').textContent = err.message;
+    }
+  });
+
   $('#login-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const pwd = $('#login-password').value;
@@ -766,7 +828,10 @@ function bindEvents() {
         body: JSON.stringify({ password: pwd }),
       });
       if (res.status === 401) throw new Error('密码不正确，请重试');
-      if (!res.ok) throw new Error('请求失败(' + res.status + ')');
+      if (!res.ok) {
+        const d = await res.json().catch(() => null);
+        throw new Error((d && d.error) || ('请求失败(' + res.status + ')'));
+      }
       $('#login-password').value = '';
       await boot();
     } catch (err) {
@@ -779,6 +844,19 @@ function bindEvents() {
   const doLogout = async () => { await api('/api/logout', { method: 'POST' }).catch(() => {}); showLogin(); };
   $('#btn-logout').addEventListener('click', doLogout);
   $('#btn-logout-m').addEventListener('click', doLogout);
+  const doChpw = async () => {
+    const p1 = prompt('请输入新密码（至少 4 位）：');
+    if (p1 === null) return;
+    if (p1.trim().length < 4) { toast('密码至少 4 位', 'error'); return; }
+    const p2 = prompt('请再输入一次确认：');
+    if (p2 === null) return;
+    if (p1 !== p2) { toast('两次输入不一致', 'error'); return; }
+    try {
+      await api('/api/change-password', { method: 'POST', body: JSON.stringify({ password: p1 }) });
+      toast('密码已修改', 'success');
+    } catch (e) { toast('修改失败: ' + e.message, 'error'); }
+  };
+  $('#btn-chpw').addEventListener('click', doChpw);
 
   // 导航
   $$('.nav-btn').forEach((b) => b.addEventListener('click', () => switchPage(b.dataset.page)));
@@ -877,6 +955,7 @@ async function boot() {
   try {
     me = await api('/api/me');
   } catch { showLogin(); return; }
+  if (!me.passwordSet) { showSetup(); return; }
   if (!me.authenticated) { showLogin(); return; }
   showApp();
   $('#max-size-label').textContent = formatBytes(me.maxUploadSize);
